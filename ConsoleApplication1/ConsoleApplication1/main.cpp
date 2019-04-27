@@ -15,10 +15,21 @@
 #include <SDL/SDL_opengl.h>
 #include <SDL/SDL_image.h>
 
+#include <GL/gl.h>
+#include <GL/glu.h>
+#include <GL/glut.h>
+
+#include <iostream>
+
+
 #define PI 3.141592653589793
 
-unsigned Textures[3];
+using namespace std;
+
+unsigned Textures[4];
 unsigned BoxList(0);					//Added!
+unsigned ObjList(0);
+
 
 /* These will define the player's position and view angle. */
 double X(0.0), Y(0.0), Z(0.0);
@@ -82,6 +93,8 @@ void CompileLists()
 	BoxList = glGenLists(1);
 	glNewList(BoxList, GL_COMPILE);
 
+	//ObjList = glGenLists(1);
+	//glNewList(ObjList, GL_COMPILE);
 		/*
 		 * Render everything as you usually would, without texture binding. We're rendering the box from the
 		 * '3D Objects' tutorial here.
@@ -125,6 +138,7 @@ void CompileLists()
 		glEnd();
 	glEndList();
 }
+
 
 /*
  * DrawRoom
@@ -291,11 +305,67 @@ void DrawRoom()
 				 */
 				glCallList(BoxList);
 			}
-			
-		glPopMatrix();
 
 	glPopMatrix();
+	
+	glBindTexture(GL_TEXTURE_2D, Textures[3]);
+	glTranslated(-180, -20, -4);
+	glCallList(BoxList);
+	glPopMatrix();
 }
+
+void display(void) 
+{
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glLoadIdentity();
+
+	glBegin(GL_QUADS);
+	glColor3f(0.0f, 0.0f, 1.5f);
+	glVertex3f(-.25f, .25f, .25f); //top left
+
+	glColor3f(1.0f, 0.5f, 1.0f);
+	glVertex3f(.25f, .25f, .25f); //top right
+
+	glColor3f(1.0f, 0.5f, 1.0f);
+	glVertex3f(.25f, 0, .25f); //bottom right
+
+	glColor3f(1.0f, 0.5f, 1.0f);
+	glVertex3f(-.25f, 0, .25f); //bottom left
+}
+
+void reshape(int w, int h) {
+	if (h == 0)
+		h = 1;
+	
+	//float aspectRatio = (float) w/h;
+	//glMatrixMode(GL_PROJECTION);
+	//glLoadIdentity();
+	SDL_SetVideoMode(800, 600, 32, SDL_OPENGL | SDL_RESIZABLE | SDL_FULLSCREEN);
+	//glViewport(0, 0, w, h);
+	//gluPerspective(80.0, aspectRatio, 0.1, 100.0);
+	//glMatrixMode(GL_MODELVIEW);
+
+	glShadeModel(GL_SMOOTH);
+	glClearColor(0, 0, 0, 1);
+
+	glViewport(0, 0, 800, 600);
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+
+	gluPerspective(80.0, 800.0 / 600.0, 0.1, 100.0);
+
+	/* We now switch to the modelview matrix. */
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+
+	glEnable(GL_DEPTH_TEST);
+
+	glDepthFunc(GL_LEQUAL);
+
+	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+}
+
 
 int main(int argc, char **argv)
 {
@@ -315,7 +385,9 @@ int main(int argc, char **argv)
 
 	SDL_ShowCursor(SDL_DISABLE);
 
-	SDL_SetVideoMode(800, 600, 32, SDL_OPENGL);
+	SDL_SetVideoMode(800, 600, 32, SDL_OPENGL | SDL_RESIZABLE);
+
+	
 
 	/* Basic OpenGL initialization, handled in 'The Screen'. */
 	glShadeModel(GL_SMOOTH);
@@ -327,7 +399,7 @@ int main(int argc, char **argv)
 	glLoadIdentity();
 
 	gluPerspective(80.0, 800.0/600.0, 0.1, 100.0);
-
+	
 	/* We now switch to the modelview matrix. */
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -350,6 +422,7 @@ int main(int argc, char **argv)
 	Textures[0] = GrabTexObjFromFile("Data/Wall.png");
 	Textures[1] = GrabTexObjFromFile("Data/Floor.png");
 	Textures[2] = GrabTexObjFromFile("Data/Box.png");			//Added!
+	Textures[3] = GrabTexObjFromFile("Data/Window.png");
 
 	//Replaced this with a loop that immediately checks the entire array.
 	//sizeof(Textures) is the size of the entire array in bytes (unsigned int = 4 bytes)
@@ -376,17 +449,20 @@ int main(int argc, char **argv)
 	int MovementDelay(SDL_GetTicks());
 
 	bool Wireframe(false);
-	bool Keys[4] =
+	bool Keys[5] =
 	{
 		false, /* Up arrow down? */
 		false, /* Down arrow down? */
 		false, /* Left arrow down? */
-		false  /* Right arrow down? */
+		false,  /* Right arrow down? */
+		false  /*Resize 1: */
 	};
+
 
 	/* Application loop. */
 	for(;;)
 	{
+
 		/* Handle events with SDL. */
 		if(SDL_PollEvent(&event))
 		{
@@ -412,6 +488,8 @@ int main(int argc, char **argv)
 
 				/* This delay might seem strange, but it helps smoothing out the mouse if you're experiencing jittering. */
 				SDL_Delay(5);
+
+				
 			}
 
 			else if(event.type == SDL_KEYDOWN)
@@ -426,6 +504,7 @@ int main(int argc, char **argv)
 				if(event.key.keysym.sym == SDLK_DOWN)		Keys[1] = true;
 				if(event.key.keysym.sym == SDLK_LEFT)		Keys[2] = true;
 				if(event.key.keysym.sym == SDLK_RIGHT)		Keys[3] = true;
+				if(event.key.keysym.sym == SDLK_0)			Keys[4] = true;
 			}
 
 			else if(event.type == SDL_KEYUP)
@@ -434,6 +513,7 @@ int main(int argc, char **argv)
 				if(event.key.keysym.sym == SDLK_DOWN)		Keys[1] = false;
 				if(event.key.keysym.sym == SDLK_LEFT)		Keys[2] = false;
 				if(event.key.keysym.sym == SDLK_RIGHT)		Keys[3] = false;
+				if (event.key.keysym.sym == SDLK_0)			Keys[4] = false;
 			}
 		}
 
@@ -466,6 +546,11 @@ int main(int argc, char **argv)
 		{
 			X -= cos(DegreeToRadian(ViewAngleHor + 180.0)) * 0.05;
 			Z -= sin(DegreeToRadian(ViewAngleHor + 180.0)) * 0.05;
+		}
+
+		if (Keys[4])
+		{
+			reshape(1280, 720);
 		}
 
 		/* Swap the display buffers. */
